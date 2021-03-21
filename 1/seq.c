@@ -10,6 +10,24 @@
 #include <ctype.h>
 #include <limits.h>
 
+enum {
+    INITIAL_SZ = 1
+};
+
+#define CORO_LOCAL_DATA struct {                \
+    int deep;                        \
+    int* arr;                    \
+    FILE *fp;                          \
+    int current_size;\
+    int current_index;\
+    int current;                                \
+    char *name;                                 \
+    int *size;                                                \
+}
+
+
+
+#include "coro_jmp.h"
 
 /*
  * simple quicksort implementation
@@ -62,15 +80,13 @@ check(int test, const char *message, ...)
     }
 }
 
-enum {
-    INITIAL_SZ = 1
-};
 
 /*
  * read and sort the single file
  */
-int*
-sortfile(char *name, int* size)
+
+int *
+sortfile(char *name, int *size)
 {
     FILE *fp = fopen(name, "r");
     int *arr = malloc(INITIAL_SZ * sizeof(int));
@@ -93,22 +109,63 @@ sortfile(char *name, int* size)
     // open for the write and truncate
 }
 
+int *
+coro_sortfile()
+{
+    coro_this()->fp = fopen(coro_this()->name, "r");
+    coro_yield();
+    coro_this()->arr = malloc(INITIAL_SZ * sizeof(int));
+    coro_yield();
+    coro_this()->current_size = INITIAL_SZ;
+    coro_yield();
+    while (fscanf(coro_this()->fp, "%d", &coro_this()->current) == 1) {
+        coro_yield();
+        printf("ok\n");
+        if (coro_this()->current_size == coro_this()->current_index) {
+            coro_this()->arr = realloc(coro_this()->arr, sizeof(int) * coro_this()->current_size * 2);
+            coro_this()->current_size *= 2;
+        }
+        coro_this()->arr[coro_this()->current_index++] = coro_this()->current;
+    }
+    // no need for the read decsriptors
+    fclose(coro_this()->fp);
+    coro_yield();
+    quicksort(coro_this()->arr, 0, coro_this()->current_index - 1);
+    coro_yield();
+    *coro_this()->size = coro_this()->current_index;
+    coro_yield();
+    // yield the file
+    // open for the write and truncate
+}
+
 int
 main(int argc, char **argv)
 {
+    // ini coroutines
+    coro_count = argc - 1;
+    coros = malloc(coro_count * sizeof(struct coro));
+    for (int i = 0; i < coro_count; ++i) {
+        if (coro_init(&coros[i]) != 0) {
+            break;
+        }
+    }
     int fd = open("test1.txt", O_RDONLY);
 
-    int* sorted[argc - 1];
+    int *sorted[argc - 1];
     int sizes[argc - 1];
     int iterators[argc - 1];
     int overall = 0;
     for (int i = 1; i < argc; ++i) {
         iterators[i - 1] = 0;
-        sorted [i - 1] = sortfile(argv[i], &sizes[i - 1]);
+        coros[i - 1].name = argv[i];
+        coros[i - 1].size = &sizes[i - 1];
+//        sorted[i - 1] = sortfile(argv[i], &sizes[i - 1]);
+        coro_sortfile();
+        sorted[i - 1] = coros[i - 1].arr;
         overall += sizes[i - 1];
     }
 
-    FILE* out = fopen("output.txt", "w");
+    FILE *out = fopen("output.txt", "w");
     // suboptimal k-way merge
     for (int i = 0; i < overall; ++i) {
         int value = INT_MAX;
@@ -122,6 +179,7 @@ main(int argc, char **argv)
         fprintf(out, "%d ", sorted[index][iterators[index]++]);
     }
     fclose(out);
+    free(coros);
 //    for (int i = 1; i < argc; ++i) {
 //        close(fds[i - 1]);
 //    }

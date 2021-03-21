@@ -80,8 +80,8 @@ struct coro {
  * In your code it should be dynamic, not const. Here it is 3 for
  * simplicity.
  */
-#define coro_count 3
-static struct coro coros[coro_count];
+static int coro_count;
+static struct coro *coros;
 
 /**
  * Index of the currently working coroutine. It is used to learn
