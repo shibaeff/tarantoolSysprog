@@ -88,6 +88,7 @@ sortfile(char *name, int* size)
     fclose(fp);
     quicksort(arr, 0, current_index - 1);
     *size = current_index;
+    return arr;
     // yield the file
     // open for the write and truncate
 }
@@ -113,12 +114,12 @@ main(int argc, char **argv)
         int value = INT_MAX;
         int index = -1;
         for (int k = 0; k < argc - 1; ++k) {
-            if (iterators[i] < sizes[i] && sorted[k][iterators[i]] < value) {
+            if (iterators[k] < sizes[k] && sorted[k][iterators[k]] < value) {
                 index = k;
-                value = iterators[i];
+                value = sorted[k][iterators[k]];
             }
         }
-        fprintf(out, "%d ", sorted[index][iterators[i]++]);
+        fprintf(out, "%d ", sorted[index][iterators[index]++]);
     }
     fclose(out);
 //    for (int i = 1; i < argc; ++i) {
