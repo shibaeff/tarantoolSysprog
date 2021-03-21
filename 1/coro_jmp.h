@@ -155,15 +155,11 @@ static int curr_coro_i = 0;
 	bool is_all_finished = true;				\
 	for (int i = 0; i < coro_count; ++i) {			\
 		if (! coros[i].is_finished) {			\
-			fprintf(stderr, "Coro %d: still active,"\
-				" re-scheduling\n", i);		\
 			is_all_finished = false;		\
 			break;					\
 		}						\
 	}							\
-	if (is_all_finished) {					\
-		fprintf(stderr, "No more active coros to "	\
-			"schedule.\n");				\
+	if (is_all_finished) {				\
 		break;						\
 	}							\
 	coro_yield();						\

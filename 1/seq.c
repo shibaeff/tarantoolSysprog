@@ -1,67 +1,32 @@
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <errno.h>
 #include <string.h>
 #include <stdarg.h>
-#include <fcntl.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
-#include <ctype.h>
 #include <limits.h>
+#include <time.h>
+#include <sys/time.h>
 
 enum {
-    INITIAL_SZ = 1
+    INITIAL_SZ = 1,
 };
 
 #define CORO_LOCAL_DATA struct {                \
     int deep;                        \
-    int* arr;                    \
+    int* arr;                                  \
     FILE *fp;                          \
     int current_size;\
     int current_index;\
     int current;                                \
     char *name;                                 \
-    int *size;                                                \
+    int *size;                                  \
+    struct timeval start;                       \
+    struct timeval finish;\
+                                                    \
 }
-
 
 
 #include "coro_jmp.h"
 
-/*
- * simple quicksort implementation
- * I always take it from R. Sadgewick's book
- */
-void quicksort(int *number, int first, int last)
-{
-    int i, j, pivot, temp;
-
-    if (first < last) {
-        pivot = first;
-        i = first;
-        j = last;
-
-        while (i < j) {
-            while (number[i] <= number[pivot] && i < last)
-                i++;
-            while (number[j] > number[pivot])
-                j--;
-            if (i < j) {
-                temp = number[i];
-                number[i] = number[j];
-                number[j] = temp;
-            }
-        }
-
-        temp = number[pivot];
-        number[pivot] = number[j];
-        number[j] = temp;
-        quicksort(number, first, j - 1);
-        quicksort(number, j + 1, last);
-
-    }
-}
 
 /* how to user this wonderful shortcut
  *   check(mapped == MAP_FAILED, "mmap %s failed: %s",
@@ -84,7 +49,6 @@ check(int test, const char *message, ...)
 /*
  * read and sort the single file
  */
-
 int *
 sortfile(char *name, int *size)
 {
@@ -102,16 +66,79 @@ sortfile(char *name, int *size)
     }
     // no need for the read decsriptors
     fclose(fp);
-    quicksort(arr, 0, current_index - 1);
+    // quicksort(arr, 0, current_index - 1);
     *size = current_index;
     return arr;
     // yield the file
     // open for the write and truncate
 }
 
+void swap(int *a, int *b)
+{
+    int t = *a;
+    *a = *b;
+    *b = t;
+}
+
+int partition(int arr[], int l, int h)
+{
+    int x = arr[h];
+    int i = (l - 1);
+
+    for (int j = l; j <= h - 1; j++) {
+        if (arr[j] <= x) {
+            i++;
+            swap(&arr[i], &arr[j]);
+        }
+    }
+    swap(&arr[i + 1], &arr[h]);
+    return (i + 1);
+}
+
+void
+quickSortIterative(int arr[], int l, int h)
+{
+    // Create an auxiliary stack
+    int stack[h - l + 1];
+
+    // initialize top of stack
+    int top = -1;
+
+    // push initial values of l and h to stack
+    stack[++top] = l;
+    stack[++top] = h;
+
+    // Keep popping from stack while is not empty
+    while (top >= 0) {
+        // Pop h and l
+        h = stack[top--];
+        l = stack[top--];
+
+        // Set pivot element at its correct position
+        // in sorted array
+        int p = partition(arr, l, h);
+
+        // If there are elements on left side of pivot,
+        // then push left side to stack
+        if (p - 1 > l) {
+            stack[++top] = l;
+            stack[++top] = p - 1;
+        }
+
+        // If there are elements on right side of pivot,
+        // then push right side to stack
+        if (p + 1 < h) {
+            stack[++top] = p + 1;
+            stack[++top] = h;
+        }
+    }
+}
+
 int *
 coro_sortfile()
 {
+    gettimeofday(&coro_this()->start, 0);
+    coro_yield();
     coro_this()->fp = fopen(coro_this()->name, "r");
     coro_yield();
     coro_this()->arr = malloc(INITIAL_SZ * sizeof(int));
@@ -120,28 +147,39 @@ coro_sortfile()
     coro_yield();
     while (fscanf(coro_this()->fp, "%d", &coro_this()->current) == 1) {
         coro_yield();
-        printf("ok\n");
         if (coro_this()->current_size == coro_this()->current_index) {
+            coro_yield();
             coro_this()->arr = realloc(coro_this()->arr, sizeof(int) * coro_this()->current_size * 2);
+            coro_yield();
             coro_this()->current_size *= 2;
+            coro_yield();
         }
         coro_this()->arr[coro_this()->current_index++] = coro_this()->current;
     }
     // no need for the read decsriptors
     fclose(coro_this()->fp);
     coro_yield();
-    quicksort(coro_this()->arr, 0, coro_this()->current_index - 1);
+    quickSortIterative(coro_this()->arr, 0, coro_this()->current_index - 1);
     coro_yield();
     *coro_this()->size = coro_this()->current_index;
-    coro_yield();
+    gettimeofday(&coro_this()->finish, 0);
+    coro_finish();
+    coro_wait_all();
     // yield the file
     // open for the write and truncate
 }
 
+long long timedifference_msec(struct timeval t0, struct timeval t1)
+{
+    return (t1.tv_sec - t0.tv_sec) * 1000 + (t1.tv_usec - t0.tv_usec) / 1000;
+}
 int
 main(int argc, char **argv)
 {
+    struct timeval t0;
+    struct timeval t1;
     // ini coroutines
+    gettimeofday(&t0, 0);
     coro_count = argc - 1;
     coros = malloc(coro_count * sizeof(struct coro));
     for (int i = 0; i < coro_count; ++i) {
@@ -149,8 +187,6 @@ main(int argc, char **argv)
             break;
         }
     }
-    int fd = open("test1.txt", O_RDONLY);
-
     int *sorted[argc - 1];
     int sizes[argc - 1];
     int iterators[argc - 1];
@@ -159,12 +195,13 @@ main(int argc, char **argv)
         iterators[i - 1] = 0;
         coros[i - 1].name = argv[i];
         coros[i - 1].size = &sizes[i - 1];
-//        sorted[i - 1] = sortfile(argv[i], &sizes[i - 1]);
-        coro_sortfile();
+    }
+    coro_call(coro_sortfile);
+    for (int i = 1; i < argc; ++i) {
         sorted[i - 1] = coros[i - 1].arr;
+        sizes[i - 1] = *coros[i - 1].size;
         overall += sizes[i - 1];
     }
-
     FILE *out = fopen("output.txt", "w");
     // suboptimal k-way merge
     for (int i = 0; i < overall; ++i) {
@@ -179,9 +216,18 @@ main(int argc, char **argv)
         fprintf(out, "%d ", sorted[index][iterators[index]++]);
     }
     fclose(out);
+    for (int i = 0; i < argc - 1; ++i) {
+        free(coros[i].arr);
+    }
     free(coros);
-//    for (int i = 1; i < argc; ++i) {
-//        close(fds[i - 1]);
-//    }
+    gettimeofday(&t1, 0);
+
+    long microseconds = t1.tv_usec - t0.tv_usec + 1000000 * (t1.tv_sec - t0.tv_sec);
+    printf("Overall working time %ld microseconds\n", microseconds);
+
+    for (int i = 0; i < argc - 1; ++i) {
+        microseconds = coros[i].finish.tv_usec - coros[i].start.tv_usec + 1000000 * (coros[i].finish.tv_sec - coros[i].start.tv_sec);
+        printf("Coro #%d worked for %ld microseconds\n", i, microseconds);
+    }
     return 0;
 }
