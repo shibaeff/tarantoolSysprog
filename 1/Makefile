@@ -10,7 +10,7 @@ test:
 	python3 generator.py -f test8.txt -c 10000 -m 10000
 	python3 generator.py -f test9.txt -c 10000 -m 10000
 	python3 generator.py -f test10.txt -c 10000 -m 10000
-	gcc seq.c
+	gcc main.c
 	./a.out test1.txt test2.txt test3.txt test4.txt test5.txt test6.txt test7.txt test8.txt test9.txt test10.txt
 	python3 checker.py -f output.txt
 	make clean
