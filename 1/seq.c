@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <time.h>
 #include <sys/time.h>
+#include <poll.h>
 
 enum {
     INITIAL_SZ = 1,
@@ -21,7 +22,7 @@ enum {
     int *size;                                  \
     struct timeval start;                       \
     struct timeval finish;\
-                                                    \
+    struct pollfd poll;\
 }
 
 
@@ -140,21 +141,30 @@ coro_sortfile()
     gettimeofday(&coro_this()->start, 0);
     coro_yield();
     coro_this()->fp = fopen(coro_this()->name, "r");
+    // set polling
+    coro_this()->poll.fd = fileno(coro_this()->fp);
+    coro_this()->poll.events = POLLIN|POLLPRI;
     coro_yield();
     coro_this()->arr = malloc(INITIAL_SZ * sizeof(int));
     coro_yield();
     coro_this()->current_size = INITIAL_SZ;
     coro_yield();
-    while (fscanf(coro_this()->fp, "%d", &coro_this()->current) == 1) {
-        coro_yield();
-        if (coro_this()->current_size == coro_this()->current_index) {
+    while (1) {
+        if (poll(&coro_this()->poll, 1, 2000)) {
             coro_yield();
-            coro_this()->arr = realloc(coro_this()->arr, sizeof(int) * coro_this()->current_size * 2);
-            coro_yield();
-            coro_this()->current_size *= 2;
-            coro_yield();
+            if (fscanf(coro_this()->fp, "%d", &coro_this()->current) == 1) {
+                if (coro_this()->current_size == coro_this()->current_index) {
+                    coro_yield();
+                    coro_this()->arr = realloc(coro_this()->arr, sizeof(int) * coro_this()->current_size * 2);
+                    coro_yield();
+                    coro_this()->current_size *= 2;
+                    coro_yield();
+                }
+                coro_this()->arr[coro_this()->current_index++] = coro_this()->current;
+            } else {
+                break;
+            }
         }
-        coro_this()->arr[coro_this()->current_index++] = coro_this()->current;
     }
     // no need for the read decsriptors
     fclose(coro_this()->fp);
