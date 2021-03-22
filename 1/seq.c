@@ -25,54 +25,7 @@ enum {
     struct pollfd poll;\
 }
 
-
 #include "coro_jmp.h"
-
-
-/* how to user this wonderful shortcut
- *   check(mapped == MAP_FAILED, "mmap %s failed: %s",
-          file_name, strerror(errno));
-*/
-static void
-check(int test, const char *message, ...)
-{
-    if (test) {
-        va_list args;
-        va_start(args, message);
-        vfprintf(stderr, message, args);
-        va_end(args);
-        fprintf(stderr, "\n");
-        exit(EXIT_FAILURE);
-    }
-}
-
-
-/*
- * read and sort the single file
- */
-int *
-sortfile(char *name, int *size)
-{
-    FILE *fp = fopen(name, "r");
-    int *arr = malloc(INITIAL_SZ * sizeof(int));
-    int current_size = INITIAL_SZ;
-    int current_index = 0;
-    int current;
-    while (fscanf(fp, "%d", &current) == 1) {
-        if (current_size == current_index) {
-            arr = realloc(arr, sizeof(int) * current_size * 2);
-            current_size *= 2;
-        }
-        arr[current_index++] = current;
-    }
-    // no need for the read decsriptors
-    fclose(fp);
-    // quicksort(arr, 0, current_index - 1);
-    *size = current_index;
-    return arr;
-    // yield the file
-    // open for the write and truncate
-}
 
 void swap(int *a, int *b)
 {
@@ -143,7 +96,7 @@ coro_sortfile()
     coro_this()->fp = fopen(coro_this()->name, "r");
     // set polling
     coro_this()->poll.fd = fileno(coro_this()->fp);
-    coro_this()->poll.events = POLLIN|POLLPRI;
+    coro_this()->poll.events = POLLIN | POLLPRI;
     coro_yield();
     coro_this()->arr = malloc(INITIAL_SZ * sizeof(int));
     coro_yield();
@@ -175,14 +128,8 @@ coro_sortfile()
     gettimeofday(&coro_this()->finish, 0);
     coro_finish();
     coro_wait_all();
-    // yield the file
-    // open for the write and truncate
 }
 
-long long timedifference_msec(struct timeval t0, struct timeval t1)
-{
-    return (t1.tv_sec - t0.tv_sec) * 1000 + (t1.tv_usec - t0.tv_usec) / 1000;
-}
 int
 main(int argc, char **argv)
 {
@@ -236,7 +183,8 @@ main(int argc, char **argv)
     printf("Overall working time %ld microseconds\n", microseconds);
 
     for (int i = 0; i < argc - 1; ++i) {
-        microseconds = coros[i].finish.tv_usec - coros[i].start.tv_usec + 1000000 * (coros[i].finish.tv_sec - coros[i].start.tv_sec);
+        microseconds = coros[i].finish.tv_usec - coros[i].start.tv_usec +
+                       1000000 * (coros[i].finish.tv_sec - coros[i].start.tv_sec);
         printf("Coro #%d worked for %ld microseconds\n", i, microseconds);
     }
     return 0;
