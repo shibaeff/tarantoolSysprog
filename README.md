@@ -1,1 +1,2 @@
-contact me: shibaev (@) internet.ru
+email: shibaev (@) internet.ru;
+telegram: at golanger  
