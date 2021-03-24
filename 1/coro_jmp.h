@@ -80,8 +80,9 @@ struct coro {
  * In your code it should be dynamic, not const. Here it is 3 for
  * simplicity.
  */
+#define MAXCOROS 10000
 static int coro_count;
-static struct coro *coros;
+static struct coro coros[MAXCOROS];
 
 /**
  * Index of the currently working coroutine. It is used to learn

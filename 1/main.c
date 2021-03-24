@@ -6,19 +6,21 @@
 #include <time.h>
 #include <sys/time.h>
 #include <poll.h>
+#include <unistd.h>
 
 enum {
-    INITIAL_SZ = 1,
+    INITIAL_SZ = 1000,
 };
 
 #define CORO_LOCAL_DATA struct {                \
     int deep;                        \
-    int* arr;                                  \
+    int arr[INITIAL_SZ];                                  \
     FILE *fp;                          \
     int current_size;\
     int current_index;\
     int current;                                \
     char *name;                                 \
+    int i;\
     int *size;                                  \
     struct timeval start;                       \
     struct timeval finish;\
@@ -98,7 +100,7 @@ coro_sortfile()
     coro_this()->poll.fd = fileno(coro_this()->fp);
     coro_this()->poll.events = POLLIN | POLLPRI;
     coro_yield();
-    coro_this()->arr = malloc(INITIAL_SZ * sizeof(int));
+    // coro_this()->arr = malloc(INITIAL_SZ * sizeof(int));
     coro_yield();
     coro_this()->current_size = INITIAL_SZ;
     coro_yield();
@@ -106,25 +108,38 @@ coro_sortfile()
         if (poll(&coro_this()->poll, 1, 2000)) {
             coro_yield();
             if (fscanf(coro_this()->fp, "%d", &coro_this()->current) == 1) {
-                if (coro_this()->current_size == coro_this()->current_index) {
-                    coro_yield();
-                    coro_this()->arr = realloc(coro_this()->arr, sizeof(int) * coro_this()->current_size * 2);
-                    coro_yield();
-                    coro_this()->current_size *= 2;
-                    coro_yield();
-                }
+//                if (coro_this()->current_size == coro_this()->current_index) {
+//                    coro_yield();
+//                    coro_this()->arr = realloc(coro_this()->arr, sizeof(int) * coro_this()->current_size * 2);
+//                    coro_yield();
+//                    coro_this()->current_size *= 2;
+//                    coro_yield();
+//                }
                 coro_this()->arr[coro_this()->current_index++] = coro_this()->current;
+                coro_yield();
             } else {
                 break;
             }
         }
     }
     // no need for the read decsriptors
+//    coro_yield();
+//    quickSortIterative(coro_this()->arr, 0, coro_this()->current_index - 1);
+//    coro_yield();
+//    freopen(coro_this()->name, "w", coro_this()->fp);
+//    coro_yield();
+//    ftruncate(fileno(coro_this()->fp), 0);
+//    coro_yield();
+//    for (coro_this()->i = 0; coro_this()->i < coro_this()->current_index; ++coro_this()->i) {
+//        coro_yield();
+//        fprintf(coro_this()->fp, "%d ", coro_this()->arr[coro_this()->i]);
+//    }
     fclose(coro_this()->fp);
     coro_yield();
-    quickSortIterative(coro_this()->arr, 0, coro_this()->current_index - 1);
+    // free(coro_this()->arr);
     coro_yield();
     *coro_this()->size = coro_this()->current_index;
+    coro_yield();
     gettimeofday(&coro_this()->finish, 0);
     coro_finish();
     coro_wait_all();
@@ -138,7 +153,7 @@ main(int argc, char **argv)
     // ini coroutines
     gettimeofday(&t0, 0);
     coro_count = argc - 1;
-    coros = malloc(coro_count * sizeof(struct coro));
+    // coros = calloc(coro_count, sizeof(struct coro));
     for (int i = 0; i < coro_count; ++i) {
         if (coro_init(&coros[i]) != 0) {
             break;
@@ -181,13 +196,11 @@ main(int argc, char **argv)
     printf("Overall working time %ld microseconds\n", microseconds);
 
     for (int i = 0; i < argc - 1; ++i) {
+        // free(sorted[i - 1]);
         microseconds = coros[i].finish.tv_usec - coros[i].start.tv_usec +
                        1000000 * (coros[i].finish.tv_sec - coros[i].start.tv_sec);
         printf("Coro #%d worked for %ld microseconds\n", i, microseconds);
     }
-    for (int i = 0; i < argc - 1; ++i) {
-        free(coros[i].arr);
-    }
-    free(coros);
+    // free(coros);
     return 0;
 }
