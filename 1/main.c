@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 enum {
-    INITIAL_SZ = 1000,
+    INITIAL_SZ = 20000,
 };
 
 #define CORO_LOCAL_DATA struct {                \
@@ -123,9 +123,9 @@ coro_sortfile()
         }
     }
     // no need for the read decsriptors
-//    coro_yield();
-//    quickSortIterative(coro_this()->arr, 0, coro_this()->current_index - 1);
-//    coro_yield();
+    coro_yield();
+    quickSortIterative(coro_this()->arr, 0, coro_this()->current_index - 1);
+    coro_yield();
 //    freopen(coro_this()->name, "w", coro_this()->fp);
 //    coro_yield();
 //    ftruncate(fileno(coro_this()->fp), 0);
