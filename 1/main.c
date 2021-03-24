@@ -88,7 +88,7 @@ quickSortIterative(int arr[], int l, int h)
     }
 }
 
-int *
+void
 coro_sortfile()
 {
     gettimeofday(&coro_this()->start, 0);
@@ -152,6 +152,8 @@ main(int argc, char **argv)
         iterators[i - 1] = 0;
         coros[i - 1].name = argv[i];
         coros[i - 1].size = &sizes[i - 1];
+        coros[i - 1].current_size = 0;
+        coros[i - 1].current_index = 0;
     }
     coro_call(coro_sortfile);
     for (int i = 1; i < argc; ++i) {
@@ -173,10 +175,6 @@ main(int argc, char **argv)
         fprintf(out, "%d ", sorted[index][iterators[index]++]);
     }
     fclose(out);
-    for (int i = 0; i < argc - 1; ++i) {
-        free(coros[i].arr);
-    }
-    free(coros);
     gettimeofday(&t1, 0);
 
     long microseconds = t1.tv_usec - t0.tv_usec + 1000000 * (t1.tv_sec - t0.tv_sec);
@@ -187,5 +185,9 @@ main(int argc, char **argv)
                        1000000 * (coros[i].finish.tv_sec - coros[i].start.tv_sec);
         printf("Coro #%d worked for %ld microseconds\n", i, microseconds);
     }
+    for (int i = 0; i < argc - 1; ++i) {
+        free(coros[i].arr);
+    }
+    free(coros);
     return 0;
 }

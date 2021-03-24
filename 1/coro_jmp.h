@@ -51,29 +51,29 @@
  * local variables and a position, where it stands now.
  */
 struct coro {
-	/**
-	 * Important thing - execution position where that
-	 * coroutine stopped last time.
-	 */
-	jmp_buf exec_point;
-	/**
-	 * Stack of points remembered before a call of a function
-	 * from the coroutine. Before each new call stack position
-	 * is remembered here, and the function returns here via
-	 * longjmp.
-	 */
-	jmp_buf *ret_points;
-	/** Number of used points. */
-	int ret_count;
-	/** Maximal number of points to store. */
-	int ret_capacity;
-	/**
-	 * This flag is set when the coroutine has finished its
-	 * task. It is used to wait until all the coroutines are
-	 * finished.
-	 */
-	bool is_finished;
-	CORO_LOCAL_DATA;
+    /**
+     * Important thing - execution position where that
+     * coroutine stopped last time.
+     */
+    jmp_buf exec_point;
+    /**
+     * Stack of points remembered before a call of a function
+     * from the coroutine. Before each new call stack position
+     * is remembered here, and the function returns here via
+     * longjmp.
+     */
+    jmp_buf *ret_points;
+    /** Number of used points. */
+    int ret_count;
+    /** Maximal number of points to store. */
+    int ret_capacity;
+    /**
+     * This flag is set when the coroutine has finished its
+     * task. It is used to wait until all the coroutines are
+     * finished.
+     */
+    bool is_finished;
+    CORO_LOCAL_DATA;
 };
 
 /**
@@ -103,41 +103,41 @@ static int curr_coro_i = 0;
  * code instead of real call and 'return' use coro_call() and
  * coro_return().
  */
-#define coro_yield() ({						\
-	int old_i = curr_coro_i;				\
-	curr_coro_i = (curr_coro_i + 1) % coro_count;		\
-	if (setjmp(coros[old_i].exec_point) == 0)		\
-		longjmp(coros[curr_coro_i].exec_point, 1);	\
+#define coro_yield() ({                        \
+    int old_i = curr_coro_i;                \
+    curr_coro_i = (curr_coro_i + 1) % coro_count;        \
+    if (setjmp(coros[old_i].exec_point) == 0)        \
+        longjmp(coros[curr_coro_i].exec_point, 1);    \
 })
 
 /** Initialize a coroutine. */
-#define coro_init(coro) ({					\
-	(coro)->is_finished = false;				\
-	(coro)->ret_count = 0;					\
-	(coro)->ret_capacity = 0;				\
-	(coro)->ret_points = NULL;				\
-	setjmp((coro)->exec_point);				\
+#define coro_init(coro) ({                    \
+    (coro)->is_finished = false;                \
+    (coro)->ret_count = 0;                    \
+    (coro)->ret_capacity = 0;                \
+    (coro)->ret_points = NULL;                \
+    setjmp((coro)->exec_point);                \
 })
 
 /**
  * Call a function, but do it safely, creating a point to jump
  * back from that function, instead of 'return'.
  */
-#define coro_call(func, ...) ({					\
-	struct coro *c = coro_this();				\
-	if (c->ret_count + 1 > c->ret_capacity) {		\
-		int new_cap = (c->ret_capacity + 1) * 2;	\
-		int new_size = new_cap * sizeof(jmp_buf);	\
-		c->ret_points =					\
-			(jmp_buf *) realloc(c->ret_points,	\
-					    new_size);		\
-		assert(c->ret_points != NULL);			\
-		c->ret_capacity = new_cap;			\
-	}							\
-	if (setjmp(c->ret_points[c->ret_count]) == 0) {		\
-		++c->ret_count;					\
-		func(__VA_ARGS__);				\
-	}							\
+#define coro_call(func, ...) ({                    \
+    struct coro *c = coro_this();                \
+    if (c->ret_count + 1 > c->ret_capacity) {        \
+        int new_cap = (c->ret_capacity + 1) * 2;    \
+        int new_size = new_cap * sizeof(jmp_buf);    \
+        c->ret_points =                    \
+            (jmp_buf *) realloc(c->ret_points,    \
+                        new_size);        \
+        assert(c->ret_points != NULL);            \
+        c->ret_capacity = new_cap;            \
+    }                            \
+    if (setjmp(c->ret_points[c->ret_count]) == 0) {        \
+        ++c->ret_count;                    \
+        func(__VA_ARGS__);                \
+    }                            \
 })
 
 /**
@@ -145,22 +145,22 @@ static int curr_coro_i = 0;
  * Tricky thing - it does not use 'return', because it taints
  * all the jmp_buf's. Instead, it jumps out of that function.
  */
-#define coro_return() ({					\
-	struct coro *c = coro_this();				\
-	longjmp(c->ret_points[--c->ret_count], 1);		\
+#define coro_return() ({                    \
+    struct coro *c = coro_this();                \
+    longjmp(c->ret_points[--c->ret_count], 1);        \
 })
 
 /** Wait until all the coroutines have finished. */
-#define coro_wait_all() do {					\
-	bool is_all_finished = true;				\
-	for (int i = 0; i < coro_count; ++i) {			\
-		if (! coros[i].is_finished) {			\
-			is_all_finished = false;		\
-			break;					\
-		}						\
-	}							\
-	if (is_all_finished) {				\
-		break;						\
-	}							\
-	coro_yield();						\
+#define coro_wait_all() do {                    \
+    bool is_all_finished = true;                \
+    for (int i = 0; i < coro_count; ++i) {            \
+        if (! coros[i].is_finished) {            \
+            is_all_finished = false;        \
+            break;                    \
+        }                        \
+    }                            \
+    if (is_all_finished) {                \
+        break;                        \
+    }                            \
+    coro_yield();                        \
 } while (true)
