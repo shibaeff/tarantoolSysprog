@@ -116,13 +116,6 @@ coro_sortfile()
         if (poll(&coro_this()->poll, 1, 2000)) {
             coro_yield();
             if (fscanf(coro_this()->fp, "%d", &coro_this()->current) == 1) {
-//                if (coro_this()->current_size == coro_this()->current_index) {
-//                    coro_yield();
-//                    coro_this()->arr = realloc(coro_this()->arr, sizeof(int) * coro_this()->current_size * 2);
-//                    coro_yield();
-//                    coro_this()->current_size *= 2;
-//                    coro_yield();
-//                }
                 coro_this()->arr[coro_this()->current_index++] = coro_this()->current;
                 coro_yield();
             } else {
@@ -134,14 +127,6 @@ coro_sortfile()
     coro_yield();
     sort(coro_this()->arr, 0, coro_this()->current_index - 1);
     coro_yield();
-//    freopen(coro_this()->name, "w", coro_this()->fp);
-//    coro_yield();
-//    ftruncate(fileno(coro_this()->fp), 0);
-//    coro_yield();
-//    for (coro_this()->i = 0; coro_this()->i < coro_this()->current_index; ++coro_this()->i) {
-//        coro_yield();
-//        fprintf(coro_this()->fp, "%d ", coro_this()->arr[coro_this()->i]);
-//    }
     fclose(coro_this()->fp);
     coro_yield();
     // free(coro_this()->arr);
