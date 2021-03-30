@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 enum {
-    INITIAL_SZ = 20000,
+    INITIAL_SZ = 40000,
 };
 
 #define CORO_LOCAL_DATA struct {                \
@@ -115,7 +115,7 @@ coro_sortfile()
     while (1) {
         if (poll(&coro_this()->poll, 1, 2000)) {
             coro_yield();
-            if (fscanf(coro_this()->fp, "%d", &coro_this()->current) == 1) {
+            if (fscanf(coro_this()->fp, "%d", &coro_this()->current) == 1 && coro_this()->current_index < INITIAL_SZ) {
                 coro_this()->arr[coro_this()->current_index++] = coro_this()->current;
                 coro_yield();
             } else {
